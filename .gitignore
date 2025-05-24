@@ -1,0 +1,29 @@
+# Byte-compiled / optimized / DLL files
+__pycache__/
+*.py[cod]
+*.so
+
+# Virtual environments
+.venv/
+.env/
+
+# Model files
+*.pt
+*.pth
+
+# Log files and databases
+*.log
+*.sqlite3
+
+# Editor settings
+.idea/
+.vscode/
+
+# Frontend build output
+node_modules/
+dist/
+build/
+
+# OS/system files
+.DS_Store
+Thumbs.db

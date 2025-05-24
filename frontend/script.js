@@ -23,7 +23,7 @@ detectBtn.addEventListener("click", async () => {
 
   resultsDiv.innerHTML = "Detecting...";
   try {
-    const response = await fetch("https://your-render-backend.onrender.com/detect", {
+    const response = await fetch("https://liveobjectdetection.onrender.com/detect", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ image: imageBase64 })

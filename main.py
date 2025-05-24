@@ -1,80 +1,50 @@
-import cv2
-import time
-import logging
-import numpy as np
-from fastapi import FastAPI
+# main.py
+from fastapi import FastAPI, File, UploadFile
 from fastapi.middleware.cors import CORSMiddleware
-from pydantic import BaseModel
-from utils.tts import speak
+from fastapi.responses import JSONResponse
 from ultralytics import YOLO
-from io import BytesIO
-import base64
 from PIL import Image
+import io
+import cv2
+import numpy as np
 
-# Logging
-logging.basicConfig(level=logging.DEBUG)
 app = FastAPI()
 
+# Allow CORS from any frontend (e.g., Netlify)
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],  # Use your Netlify domain in production
+    allow_origins=["*"],  # Change to your Netlify URL in production
+    allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
 )
 
-# Model
-model = YOLO("yolov8n.pt")
+# Load YOLOv8 model
+model = YOLO("yolov8n.pt")  # or your custom model
 
-# Constants
-FOCAL_LENGTH = 1000
-KNOWN_WIDTH_CM = 7
-SAFE_DISTANCE_CM = 100
-SPEAK_COOLDOWN = 2
-last_speak_time = 0
+@app.post("/predict")
+async def predict(file: UploadFile = File(...)):
+    contents = await file.read()
+    img_array = np.array(Image.open(io.BytesIO(contents)).convert("RGB"))
 
-# Schema
-class ImageData(BaseModel):
-    image: str  # base64 image string
+    results = model(img_array)[0]  # YOLOv8 output
 
-def estimate_distance(pixel_width):
-    return (KNOWN_WIDTH_CM * FOCAL_LENGTH) / pixel_width if pixel_width else 0
+    detections = []
+    for box in results.boxes:
+        cls_id = int(box.cls[0])
+        confidence = float(box.conf[0])
+        label = model.names[cls_id]
+        xyxy = box.xyxy[0].tolist()
 
-@app.post("/detect")
-async def detect(data: ImageData):
-    global last_speak_time
+        detections.append({
+            "label": label,
+            "confidence": round(confidence, 2),
+            "box": {
+                "xmin": int(xyxy[0]),
+                "ymin": int(xyxy[1]),
+                "xmax": int(xyxy[2]),
+                "ymax": int(xyxy[3])
+            }
+        })
 
-    try:
-        image_data = data.image.split(",")[1]
-        image_bytes = base64.b64decode(image_data)
-        image = Image.open(BytesIO(image_bytes)).convert("RGB")
-        frame = cv2.cvtColor(np.array(image), cv2.COLOR_RGB2BGR)
-
-        results = model(frame, conf=0.5)[0]
-        detections = []
-
-        for box, cls in zip(results.boxes.xyxy, results.boxes.cls):
-            x1, y1, x2, y2 = map(int, box)
-            obj_type = model.names[int(cls)]
-            pixel_width = x2 - x1
-            distance = estimate_distance(pixel_width)
-
-            status = "SAFE"
-            if distance < SAFE_DISTANCE_CM:
-                status = "NOT SAFE"
-                if time.time() - last_speak_time > SPEAK_COOLDOWN:
-                    speak(f"Warning! {obj_type} too close.")
-                    last_speak_time = time.time()
-            else:
-                if time.time() - last_speak_time > SPEAK_COOLDOWN:
-                    speak(f"{obj_type} at safe distance.")
-                    last_speak_time = time.time()
-
-            detections.append({
-                "object": obj_type,
-                "distance_cm": int(distance),
-                "status": status
-            })
-
-        return {"detections": detections}
-    except Exception as e:
-        return {"error": str(e)}
+    return JSONResponse(content={"detections": detections})

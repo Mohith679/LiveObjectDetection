@@ -4,15 +4,31 @@
   <meta charset="UTF-8">
   <title>Live Object Detection</title>
   <style>
-    body { background: #111; color: white; text-align: center; font-family: sans-serif; }
-    video, canvas { border: 2px solid #0f0; border-radius: 10px; margin-top: 10px; }
-    #results { margin-top: 20px; }
+    body {
+      background: #111;
+      color: white;
+      text-align: center;
+      font-family: sans-serif;
+    }
+    video, canvas {
+      border: 2px solid #0f0;
+      border-radius: 10px;
+      margin-top: 10px;
+    }
+    #results {
+      margin-top: 20px;
+    }
+    #results p {
+      margin: 5px 0;
+      font-size: 1.2em;
+      color: #0f0;
+    }
   </style>
 </head>
 <body>
   <h1>Live Object Detection</h1>
-  <video id="video" width="640" height="480" autoplay></video><br>
-  <button id="detectBtn">Detect</button>
+  <video id="video" width="640" height="480" autoplay></video>
+  <canvas id="canvas" width="640" height="480" style="display: none;"></canvas>
   <div id="results"></div>
 
   <script src="script.js"></script>

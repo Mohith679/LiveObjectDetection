@@ -1,43 +1,54 @@
 const video = document.getElementById("video");
-const detectBtn = document.getElementById("detectBtn");
-const resultsDiv = document.getElementById("results");
+const canvas = document.getElementById("canvas");
+const context = canvas.getContext("2d");
+const detectionOutput = document.getElementById("output");
 
-// Start webcam
+// Get user media
 navigator.mediaDevices.getUserMedia({ video: true })
-  .then(stream => {
-    video.srcObject = stream;
-  })
-  .catch(err => {
-    console.error("Webcam error:", err);
-  });
-
-// Capture frame and send to API
-detectBtn.addEventListener("click", async () => {
-  const canvas = document.createElement("canvas");
-  canvas.width = video.videoWidth;
-  canvas.height = video.videoHeight;
-  const context = canvas.getContext("2d");
-  context.drawImage(video, 0, 0, canvas.width, canvas.height);
-
-  const imageBase64 = canvas.toDataURL("image/jpeg");
-
-  resultsDiv.innerHTML = "Detecting...";
-  try {
-    const response = await fetch("https://liveobjectdetection.onrender.com/detect", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ image: imageBase64 })
+    .then((stream) => {
+        video.srcObject = stream;
+    })
+    .catch((err) => {
+        console.error("Error accessing webcam:", err);
     });
 
-    const data = await response.json();
-    if (data.detections) {
-      resultsDiv.innerHTML = data.detections.map(d =>
-        `<p><strong>${d.object}</strong>: ${d.distance_cm} cm - ${d.status}</p>`
-      ).join("");
-    } else {
-      resultsDiv.innerHTML = `<p>${data.message || data.error}</p>`;
-    }
-  } catch (error) {
-    resultsDiv.innerHTML = "API error: " + error.message;
-  }
+video.addEventListener("loadedmetadata", () => {
+    canvas.width = video.videoWidth;
+    canvas.height = video.videoHeight;
+
+    // Start capturing and sending frames
+    setInterval(captureAndSendFrame, 1000);
 });
+
+function captureAndSendFrame() {
+    context.drawImage(video, 0, 0, canvas.width, canvas.height);
+    canvas.toBlob((blob) => {
+        const formData = new FormData();
+        formData.append("file", blob, "frame.jpg");
+
+        fetch("http://localhost:8000/predict", {
+            method: "POST",
+            body: formData,
+        })
+            .then((response) => response.json())
+            .then((data) => {
+                displayDetections(data.detections);
+            })
+            .catch((err) => {
+                console.error("Prediction error:", err);
+            });
+    }, "image/jpeg");
+}
+
+function displayDetections(detections) {
+    detectionOutput.innerHTML = "";
+    if (detections.length === 0) {
+        detectionOutput.innerHTML = "No objects detected.";
+    } else {
+        detections.forEach((det) => {
+            const p = document.createElement("p");
+            p.textContent = `${det.label} (${(det.confidence * 100).toFixed(1)}%)`;
+            detectionOutput.appendChild(p);
+        });
+    }
+}

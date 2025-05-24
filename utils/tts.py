@@ -1,4 +1,3 @@
-# backend/utils/tts.py
 import pyttsx3
 import threading
 

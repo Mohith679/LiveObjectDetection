@@ -26,7 +26,7 @@ function captureAndSendFrame() {
         const formData = new FormData();
         formData.append("file", blob, "frame.jpg");
 
-        fetch("http://localhost:8000/predict", {
+        fetch("https://liveobjectdetection.onrender.com/predict", {
             method: "POST",
             body: formData,
         })
